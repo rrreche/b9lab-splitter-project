@@ -1,6 +1,7 @@
 const Splitter = artifacts.require("./Splitter.sol");
 const utils = require("web3-utils");
 const BN = utils.BN;
+const checkEvent = require("./helpers/checkEvent");
 
 contract("Splitter", accounts => {
   before("define Alice, Bob and Carol", () => {
@@ -11,28 +12,96 @@ contract("Splitter", accounts => {
   });
 
   beforeEach("initialize contract", async () => {
-    this.contract = await Splitter.new(this.Bob, this.Carol);
+    this.contract = await Splitter.new({
+      from: this.Alice
+    });
   });
 
   describe("Contract initialization", () => {
     it("assigns the owner correctly", async () => {
-      const owner = await this.contract.owner();
+      const owner = await this.contract.getOwner();
       assert.equal(owner, this.Alice);
     });
+  });
 
-    it("assigns recipient 1 as Bob, recipient 2 as Carol", async () => {
-      const recipient1 = await this.contract.recipient1();
-      const recipient2 = await this.contract.recipient2();
+  describe("Owner actions", () => {
+    it("allows to pause the contract", async () => {
+      const tx = await this.contract.pause({ from: this.Alice });
 
-      assert.equal(recipient1, this.Bob);
-      assert.equal(recipient2, this.Carol);
+      checkEvent({
+        logs: tx.logs,
+        name: "LogPause",
+        params: [{ name: "state", val: true }]
+      });
+
+      const isPaused = await this.contract.isPaused();
+
+      assert.equal(isPaused, true, "Contract is not paused");
+    });
+
+    it("allows to transfer ownership", async () => {
+      const tx = await this.contract.setOwner(this.Bob, { from: this.Alice });
+
+      checkEvent({
+        logs: tx.logs,
+        name: "LogOwnerChange",
+        params: [{ name: "owner", val: this.Bob }]
+      });
+
+      const owner = await this.contract.getOwner();
+
+      assert.equal(owner, this.Bob, "New owner was not set");
+    });
+
+    it("allows to kill the contract", async () => {
+      const tx = await this.contract.kill({ from: this.Alice });
+
+      checkEvent({
+        logs: tx.logs,
+        name: "LogKill",
+        params: [{ name: "state", val: true }]
+      });
+
+      const isDead = await this.contract.isDead();
+
+      assert.equal(isDead, true, "Contract is not dead");
+    });
+
+    describe("When paused", () => {
+      beforeEach("Pause the contract", async () => {
+        await this.contract.pause({ from: this.Alice });
+      });
+
+      it("Rejects pausing again", async () => {
+        try {
+          await this.contract.pause({ from: this.Alice });
+          assert.fail("Transaction should have failed");
+        } catch (e) {
+          if (e.reason) {
+            assert.equal(
+              e.reason,
+              "The contract is paused",
+              "Transaction failed for the wrong reasons"
+            );
+          } else {
+            console.error(e);
+            assert.fail("Transaction failed for the wrong reasons");
+          }
+        }
+      });
+    });
+
+    describe("When killed", () => {
+      // TODO
+      it("TODO Rejects every state change action");
     });
   });
 
   describe("Contract operation", () => {
-    it("allows Alice to send ether to the contract and split it", async () => {
+    it("allows users to send ether to the contract and split it", async () => {
       const sentBalance = new BN(utils.toWei("1", "ether"));
-      const tx = await this.contract.addBalance({
+      const tx = await this.contract.addBalance([this.Bob, this.Carol], {
+        from: this.Alice,
         value: sentBalance.toString()
       });
 
@@ -52,7 +121,7 @@ contract("Splitter", accounts => {
       assert.equal(
         bobBalance.toString(),
         carolBalance.toString(),
-        "Balance was not splitted equally"
+        "Balance was not split equally"
       );
 
       const bnTwo = new BN("2");
@@ -60,84 +129,72 @@ contract("Splitter", accounts => {
       assert.equal(
         sentBalance.div(bnTwo).toString(),
         bobBalance.toString(),
-        "Balance was not splitted into two"
+        "Balance was not split into two"
       );
+
+      checkEvent({
+        logs: tx.logs,
+        name: "LogBalanceAdd",
+        params: [
+          { name: "amount", val: sentBalance.div(bnTwo) },
+          { name: "splitter", val: this.Alice },
+          { name: "recipient1", val: this.Bob },
+          { name: "recipient2", val: this.Carol },
+          { name: "remainder", val: sentBalance.umod(new BN("2")) }
+        ]
+      });
     });
 
-    it("allows Bob to withdraw his ether", async () => {
-      const amountToSplit = new BN(utils.toWei("1", "ether"));
-      await this.contract.addBalance({ value: amountToSplit.toString() });
+    it("allows users to withdraw their ether", async () => {
+      const gasPrice = "1";
+
+      const sentBalance = new BN(utils.toWei("1", "ether"));
+
+      await this.contract.addBalance([this.Bob, this.Carol], {
+        from: this.Alice,
+        value: sentBalance.toString()
+      });
 
       const oldBobBalance = new BN(await web3.eth.getBalance(this.Bob));
-
       const withdrawAmount = new BN(utils.toWei("0.5", "ether"));
 
       const tx = await this.contract.withdrawEther(withdrawAmount, {
-        from: this.Bob
+        from: this.Bob,
+        gasPrice
       });
+
+      const txFee = new BN(String(tx.receipt.gasUsed * parseInt(gasPrice)));
 
       assert.ok(tx.receipt.status, "Transaction did not go through");
 
       const newBobBalance = new BN(await web3.eth.getBalance(this.Bob));
 
-      assert.ok(
-        newBobBalance.gt(oldBobBalance),
-        "Balance did not increase after withdrawal"
+      assert.equal(
+        newBobBalance.toString(),
+        oldBobBalance
+          .add(withdrawAmount)
+          .sub(txFee)
+          .toString(),
+        "Balance mismatch after withdrawal"
       );
-    });
 
-    it("allows Carol to withdraw his ether", async () => {
-      const amountToSplit = new BN(utils.toWei("1", "ether"));
-      await this.contract.addBalance({ value: amountToSplit.toString() });
-
-      const oldCarolBalance = new BN(await web3.eth.getBalance(this.Carol));
-
-      const withdrawAmount = new BN(utils.toWei("0.5", "ether"));
-
-      const tx = await this.contract.withdrawEther(withdrawAmount, {
-        from: this.Carol
+      checkEvent({
+        logs: tx.logs,
+        name: "LogBalanceWithdraw",
+        params: [
+          { name: "caller", val: this.Bob },
+          { name: "amount", val: withdrawAmount }
+        ]
       });
-
-      assert.ok(tx.receipt.status, "Transaction did not go through");
-
-      const newCarolBalance = new BN(await web3.eth.getBalance(this.Carol));
-
-      assert.ok(
-        newCarolBalance.gt(oldCarolBalance),
-        "Balance did not increase after withdrawal"
-      );
     });
   });
 
   describe("TODO Dishonest / bad behaviours", () => {
-    it("rejects withdrawals from extraneous accounts", async () => {
-      const amountToSplit = new BN(utils.toWei("1", "ether"));
-      await this.contract.addBalance({ value: amountToSplit.toString() });
-
-      try {
-        const tx = await this.contract.withdrawEther(
-          amountToSplit.div(new BN(2)).toString(),
-          { from: this.Mallory }
-        );
-
-        assert.fail("Transaction should have failed");
-      } catch (e) {
-        if (e.reason) {
-          assert.equal(
-            e.reason,
-            "SafeMath: subtraction overflow",
-            "Transaction failed for the wrong reasons"
-          );
-        } else {
-          console.error(e);
-          assert.fail("Transaction failed for the wrong reasons");
-        }
-      }
-    });
-
     it("rejects to withdraw more ether than is allowed", async () => {
       const amountToSplit = new BN(utils.toWei("1", "ether"));
-      await this.contract.addBalance({ value: amountToSplit.toString() });
+      await this.contract.addBalance([this.Bob, this.Carol], {
+        value: amountToSplit.toString()
+      });
 
       const excessAmount = amountToSplit.div(new BN(2)).add(new BN(1)); // 1 Wei more than balance
 
@@ -151,7 +208,63 @@ contract("Splitter", accounts => {
         if (e.reason) {
           assert.equal(
             e.reason,
-            "SafeMath: subtraction overflow",
+            "Not enough balance",
+            "Transaction failed for the wrong reasons"
+          );
+        } else {
+          console.error(e);
+          assert.fail("Transaction failed for the wrong reasons");
+        }
+      }
+    });
+
+    it("rejects pause from non-owner", async () => {
+      try {
+        await this.contract.pause({ from: this.Mallory });
+        assert.fail("Transaction should have failed");
+      } catch (e) {
+        if (e.reason) {
+          assert.equal(
+            e.reason,
+            "Can only be called by the owner",
+            "Transaction failed for the wrong reasons"
+          );
+        } else {
+          console.error(e);
+          assert.fail("Transaction failed for the wrong reasons");
+        }
+      }
+    });
+
+    it("rejects unpause from non-owner", async () => {
+      await this.contract.pause({ from: this.Alice });
+
+      try {
+        await this.contract.pause({ from: this.Mallory });
+        assert.fail("Transaction should have failed");
+      } catch (e) {
+        if (e.reason) {
+          assert.equal(
+            e.reason,
+            "Can only be called by the owner",
+            "Transaction failed for the wrong reasons"
+          );
+        } else {
+          console.error(e);
+          assert.fail("Transaction failed for the wrong reasons");
+        }
+      }
+    });
+
+    it("rejects kill() from non-owner", async () => {
+      try {
+        await this.contract.kill({ from: this.Mallory });
+        assert.fail("Transaction should have failed");
+      } catch (e) {
+        if (e.reason) {
+          assert.equal(
+            e.reason,
+            "Can only be called by the owner",
             "Transaction failed for the wrong reasons"
           );
         } else {
