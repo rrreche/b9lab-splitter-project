@@ -3,19 +3,10 @@ pragma solidity >= 0.5.0 <6.0.0;
 
 contract Ownable {
 
-  address internal owner;
+  address private owner;
 
   constructor() public {
     owner = msg.sender;
-  }
-
-  function getOwner() public view returns(address){
-    return owner;
-  }
-
-  function setOwner(address newOwner) public onlyOwner(){
-    owner = newOwner;
-    emit LogOwnerChange(owner);
   }
 
   modifier onlyOwner(){
@@ -24,6 +15,18 @@ contract Ownable {
   }
 
   event LogOwnerChange(
-    address owner
+    address indexed sender,
+    address indexed owner
   );
+
+  function getOwner() public view returns(address){
+    return owner;
+  }
+
+  function setOwner(address newOwner) public onlyOwner(){
+    require(newOwner != address(0), "newOwner is empty");
+    owner = newOwner;
+    emit LogOwnerChange(msg.sender, owner);
+  }
+
 }

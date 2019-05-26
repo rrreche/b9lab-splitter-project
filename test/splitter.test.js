@@ -12,7 +12,7 @@ contract("Splitter", accounts => {
   });
 
   beforeEach("initialize contract", async () => {
-    this.contract = await Splitter.new({
+    this.contract = await Splitter.new(false, {
       from: this.Alice
     });
   });
@@ -54,12 +54,13 @@ contract("Splitter", accounts => {
     });
 
     it("allows to kill the contract", async () => {
+      await this.contract.pause({ from: this.Alice });
       const tx = await this.contract.kill({ from: this.Alice });
 
       checkEvent({
         logs: tx.logs,
         name: "LogKill",
-        params: [{ name: "state", val: true }]
+        params: [{ name: "sender", val: this.Alice }]
       });
 
       const isDead = await this.contract.isDead();
@@ -98,59 +99,95 @@ contract("Splitter", accounts => {
   });
 
   describe("Contract operation", () => {
-    it("allows users to send ether to the contract and split it", async () => {
-      const sentBalance = new BN(utils.toWei("1", "ether"));
-      const tx = await this.contract.addBalance([this.Bob, this.Carol], {
-        from: this.Alice,
-        value: sentBalance.toString()
+    describe("allows users to send ether to the contract and split it", () => {
+      it("splits the amount between receivers correctly and updates balances", async () => {
+        const sentBalance = new BN(utils.toWei("1", "ether"));
+        const tx = await this.contract.splitEther(this.Bob, this.Carol, {
+          from: this.Alice,
+          value: sentBalance.toString()
+        });
+
+        assert.ok(tx.receipt.status, "Transaction did not go through");
+
+        const contractBalance = await web3.eth.getBalance(
+          this.contract.address
+        );
+
+        assert.equal(
+          contractBalance,
+          sentBalance.toString(),
+          "Contract balance was not updated"
+        );
+
+        const bobBalance = await this.contract.balances(this.Bob);
+        const carolBalance = await this.contract.balances(this.Carol);
+
+        assert.equal(
+          bobBalance.toString(),
+          carolBalance.toString(),
+          "Balance was not split equally"
+        );
+
+        const bnTwo = new BN("2");
+
+        assert.equal(
+          sentBalance.div(bnTwo).toString(),
+          bobBalance.toString(),
+          "Balance was not split into two"
+        );
+
+        checkEvent({
+          logs: [tx.logs[0]],
+          name: "LogBalanceIncrease",
+          params: [
+            { name: "sender", val: this.Alice },
+            { name: "receiver", val: this.Bob },
+            { name: "amount", val: sentBalance.div(bnTwo) }
+          ]
+        });
+
+        checkEvent({
+          logs: [tx.logs[1]],
+          name: "LogBalanceIncrease",
+          params: [
+            { name: "sender", val: this.Alice },
+            { name: "receiver", val: this.Carol },
+            { name: "amount", val: sentBalance.div(bnTwo) }
+          ]
+        });
       });
 
-      assert.ok(tx.receipt.status, "Transaction did not go through");
+      it("assigns back the remainder to the sender if amount is odd", async () => {
+        const sentBalance = new BN("3");
+        const tx = await this.contract.splitEther(this.Bob, this.Carol, {
+          from: this.Alice,
+          value: sentBalance.toString()
+        });
 
-      const contractBalance = await web3.eth.getBalance(this.contract.address);
+        const aliceBalance = await this.contract.balances(this.Alice);
 
-      assert.equal(
-        contractBalance,
-        sentBalance.toString(),
-        "Contract balance was not updated"
-      );
+        assert.equal(
+          aliceBalance.toString(),
+          new BN("1").toString(),
+          "Odd amounts do not credit remainder to sender"
+        );
 
-      const bobBalance = await this.contract.balances(this.Bob);
-      const carolBalance = await this.contract.balances(this.Carol);
-
-      assert.equal(
-        bobBalance.toString(),
-        carolBalance.toString(),
-        "Balance was not split equally"
-      );
-
-      const bnTwo = new BN("2");
-
-      assert.equal(
-        sentBalance.div(bnTwo).toString(),
-        bobBalance.toString(),
-        "Balance was not split into two"
-      );
-
-      checkEvent({
-        logs: tx.logs,
-        name: "LogBalanceAdd",
-        params: [
-          { name: "amount", val: sentBalance.div(bnTwo) },
-          { name: "splitter", val: this.Alice },
-          { name: "recipient1", val: this.Bob },
-          { name: "recipient2", val: this.Carol },
-          { name: "remainder", val: sentBalance.umod(new BN("2")) }
-        ]
+        checkEvent({
+          logs: [tx.logs[2]],
+          name: "LogBalanceIncrease",
+          params: [
+            { name: "sender", val: this.Alice },
+            { name: "receiver", val: this.Alice },
+            { name: "amount", val: new BN("1") }
+          ]
+        });
       });
     });
 
     it("allows users to withdraw their ether", async () => {
-      const gasPrice = "1";
-
       const sentBalance = new BN(utils.toWei("1", "ether"));
 
-      await this.contract.addBalance([this.Bob, this.Carol], {
+      await this.contract.splitEther(this.Bob, this.Carol, {
         from: this.Alice,
         value: sentBalance.toString()
       });
@@ -158,14 +195,17 @@ contract("Splitter", accounts => {
       const oldBobBalance = new BN(await web3.eth.getBalance(this.Bob));
       const withdrawAmount = new BN(utils.toWei("0.5", "ether"));
 
-      const tx = await this.contract.withdrawEther(withdrawAmount, {
-        from: this.Bob,
-        gasPrice
+      const result = await this.contract.withdrawEther(withdrawAmount, {
+        from: this.Bob
       });
 
-      const txFee = new BN(String(tx.receipt.gasUsed * parseInt(gasPrice)));
+      const transaction = await web3.eth.getTransaction(result.tx);
 
-      assert.ok(tx.receipt.status, "Transaction did not go through");
+      const txFee = new BN(
+        String(result.receipt.gasUsed * transaction.gasPrice)
+      );
+
+      assert.ok(result.receipt.status, "Transaction did not go through");
 
       const newBobBalance = new BN(await web3.eth.getBalance(this.Bob));
 
@@ -179,10 +219,10 @@ contract("Splitter", accounts => {
       );
 
       checkEvent({
-        logs: tx.logs,
+        logs: result.logs,
         name: "LogBalanceWithdraw",
         params: [
-          { name: "caller", val: this.Bob },
+          { name: "sender", val: this.Bob },
           { name: "amount", val: withdrawAmount }
         ]
       });
@@ -192,7 +232,7 @@ contract("Splitter", accounts => {
   describe("TODO Dishonest / bad behaviours", () => {
     it("rejects to withdraw more ether than is allowed", async () => {
       const amountToSplit = new BN(utils.toWei("1", "ether"));
-      await this.contract.addBalance([this.Bob, this.Carol], {
+      await this.contract.splitEther(this.Bob, this.Carol, {
         value: amountToSplit.toString()
       });
 

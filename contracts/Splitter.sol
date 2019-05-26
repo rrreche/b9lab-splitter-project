@@ -8,30 +8,35 @@ contract Splitter is Pausable {
 
   mapping(address => uint) public balances;
 
-  function addBalance(address[] memory recipients) public payable mustBeAlive() mustBeUnpaused(){
+  constructor(bool startPaused) Pausable(startPaused) public {
+  }
 
-    require(recipients.length == 2);
+  function splitEther(address payable receiver1, address payable receiver2) public payable mustBeAlive() mustBeRunning(){
+
     uint256 splittedAmount = msg.value.div(2); // Split the ether
 
     // Update balances
-    balances[recipients[0]] = balances[recipients[0]].add(splittedAmount);
-    balances[recipients[1]] = balances[recipients[1]].add(splittedAmount);
+    addBalance(receiver1, splittedAmount);
+    addBalance(receiver2, splittedAmount);
 
     // Refund remainder
     if(msg.value % 2 == 1){
-      balances[msg.sender] = balances[msg.sender].add(1);
+      addBalance(msg.sender, 1);
     }
 
-    emit LogBalanceAdd(
-      splittedAmount,
+  }
+
+  function addBalance(address to, uint256 amount) private {
+    balances[to] = balances[to].add(amount);
+
+    emit LogBalanceIncrease(
       msg.sender,
-      recipients[0],
-      recipients[1],
-      uint8(msg.value % 2)
+      to,
+      amount
     );
   }
 
-  function withdrawEther(uint amount) public payable mustBeAlive() mustBeUnpaused() {
+  function withdrawEther(uint amount) public payable mustBeAlive() mustBeRunning() {
     require(balances[msg.sender] >= amount, "Not enough balance");
     balances[msg.sender] = balances[msg.sender].sub(amount);
     emit LogBalanceWithdraw(msg.sender, amount);
@@ -39,18 +44,17 @@ contract Splitter is Pausable {
   }
 
   function() external {
+    revert();
   }
 
-  event LogBalanceAdd(
-    uint256 amount,
-    address splitter,
-    address recipient1,
-    address recipient2,
-    uint8 remainder
+  event LogBalanceIncrease(
+    address indexed sender,
+    address indexed receiver,
+    uint256 indexed amount
   );
 
   event LogBalanceWithdraw(
-    address caller,
+    address indexed sender,
     uint256 amount
   );
 

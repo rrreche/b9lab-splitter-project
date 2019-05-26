@@ -4,40 +4,11 @@ import "./Ownable.sol";
 
 contract Pausable is Ownable {
 
-  bool internal paused = false;
-  bool internal dead = false;
+  bool private paused = false;
+  bool private dead = false;
 
-  function pause() public mustBeAlive() onlyOwner() mustBeUnpaused(){
-    paused = true;
-    emit LogPause(paused);
-  }
-
-  function resume() public mustBeAlive() onlyOwner() mustBePaused() {
-    paused = false;
-    emit LogPause(paused);
-  }
-
-  function kill() public mustBeAlive() onlyOwner(){
-    dead = true;
-    emit LogKill(dead);
-  }
-
-  // Override to account for dead contract
-  function getOwner() public view returns(address) {
-    return owner;
-  }
-
-  function setOwner(address newOwner) public mustBeAlive() onlyOwner() {
-    owner = newOwner;
-    emit LogOwnerChange(owner);
-  }
-
-  function isPaused() public view returns (bool){
-    return paused;
-  }
-
-  function isDead() public view returns (bool){
-    return dead;
+  constructor(bool startPaused) public {
+    paused = startPaused;
   }
 
   modifier mustBeAlive(){
@@ -45,7 +16,7 @@ contract Pausable is Ownable {
     _;
   }
 
-  modifier mustBeUnpaused(){
+  modifier mustBeRunning(){
     require(paused == false, "The contract is paused");
     _;
   }
@@ -56,11 +27,35 @@ contract Pausable is Ownable {
   }
 
   event LogPause(
+    address indexed sender,
     bool state
   );
 
   event LogKill(
-    bool state
+    address sender
   );
+
+  function pause() public mustBeAlive() onlyOwner() mustBeRunning(){
+    paused = true;
+    emit LogPause(msg.sender, paused);
+  }
+
+  function resume() public mustBeAlive() onlyOwner() mustBePaused() {
+    paused = false;
+    emit LogPause(msg.sender, paused);
+  }
+
+  function kill() public mustBeAlive() onlyOwner() mustBePaused(){
+    dead = true;
+    emit LogKill(msg.sender);
+  }
+
+  function isPaused() public view returns (bool){
+    return paused;
+  }
+
+  function isDead() public view returns (bool){
+    return dead;
+  }
 
 }
