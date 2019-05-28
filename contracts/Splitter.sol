@@ -36,7 +36,7 @@ contract Splitter is Pausable {
     );
   }
 
-  function withdrawEther(uint amount) public payable mustBeAlive() mustBeRunning() {
+  function withdrawEther(uint amount) public mustBeAlive() mustBeRunning() {
     require(balances[msg.sender] >= amount, "Not enough balance");
     balances[msg.sender] = balances[msg.sender].sub(amount);
     emit LogBalanceWithdraw(msg.sender, amount);
