@@ -1,0 +1,35 @@
+{
+  "name": "module-5",
+  "version": "1.0.0",
+  "description": "",
+  "main": "client/server.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "fs-extra": "^8.0.1",
+    "gulp": "^4.0.2",
+    "gulp-watch": "^5.0.1",
+    "truffle-hdwallet-provider": "^1.0.10",
+    "web3-utils": "^1.0.0-beta.55"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node ./client/server.js",
+    "build": "next build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rrreche/b9lab-splitter-project.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rrreche/b9lab-splitter-project/issues"
+  },
+  "homepage": "https://github.com/rrreche/b9lab-splitter-project#readme",
+  "prettier": {
+    "printWidth": 120
+  }
+}

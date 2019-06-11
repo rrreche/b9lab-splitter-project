@@ -8,8 +8,7 @@ contract Splitter is Pausable {
 
   mapping(address => uint) public balances;
 
-  constructor(bool startPaused) Pausable(startPaused) public {
-  }
+  constructor(bool startPaused) Pausable(startPaused) public {}
 
   function splitEther(address payable receiver1, address payable receiver2) public payable mustBeAlive() mustBeRunning(){
 
