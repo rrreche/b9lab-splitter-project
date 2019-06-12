@@ -5,6 +5,11 @@ contract Ownable {
 
   address private owner;
 
+  event LogOwnerChange(
+    address indexed sender,
+    address indexed owner
+  );
+
   constructor() public {
     owner = msg.sender;
   }
@@ -13,11 +18,6 @@ contract Ownable {
     require(msg.sender == owner, "Can only be called by the owner");
     _;
   }
-
-  event LogOwnerChange(
-    address indexed sender,
-    address indexed owner
-  );
 
   function getOwner() public view returns(address){
     return owner;

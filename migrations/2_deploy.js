@@ -13,6 +13,7 @@ module.exports = function(deployer) {
       return Splitter.deployed();
     })
     .then(instance => {
-      fs.copySync(fromDirectory, toDirectory);
+      console.log(`Copying contracts from ${fromDirectory} to ${toDirectory}`);
+      fs.copySync(fromDirectory, toDirectory, { overwrite: true });
     });
 };

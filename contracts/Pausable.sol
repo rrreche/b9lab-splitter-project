@@ -4,27 +4,8 @@ import "./Ownable.sol";
 
 contract Pausable is Ownable {
 
-  bool private paused = false;
-  bool private dead = false;
-
-  constructor(bool startPaused) public {
-    paused = startPaused;
-  }
-
-  modifier mustBeAlive(){
-    require(dead == false, "The contract has been killed");
-    _;
-  }
-
-  modifier mustBeRunning(){
-    require(paused == false, "The contract is paused");
-    _;
-  }
-
-  modifier mustBePaused(){
-    require(paused == true, "The contract must be paused");
-    _;
-  }
+  bool private paused;
+  bool private dead;
 
   event LogPause(
     address indexed sender,
@@ -32,8 +13,28 @@ contract Pausable is Ownable {
   );
 
   event LogKill(
-    address sender
+    address indexed sender
   );
+
+  constructor(bool startPaused) public {
+    paused = startPaused;
+    dead = false;
+  }
+
+  modifier mustBeAlive {
+    require(dead == false, "");
+    _;
+  }
+
+  modifier mustBeRunning {
+    require(paused == false, "The contract is paused");
+    _;
+  }
+
+  modifier mustBePaused {
+    require(paused == true, "The contract must be paused");
+    _;
+  }
 
   function pause() public mustBeAlive() onlyOwner() mustBeRunning(){
     paused = true;
