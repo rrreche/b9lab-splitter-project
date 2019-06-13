@@ -3,17 +3,9 @@ const path = require("path");
 const { BN } = require("web3-utils").BN;
 let Splitter = artifacts.require("./Splitter.sol");
 
-const fromDirectory = path.resolve(__dirname, "./../build");
-const toDirectory = path.resolve(__dirname, "./../client/src");
+// const from = path.resolve(__dirname, "./../build/contracts/Splitter.json");
+const toFilePath = path.resolve(__dirname, "./../client/src/contracts/Splitter.json");
 
-module.exports = function(deployer) {
-  deployer
-    .deploy(Splitter, false)
-    .then(() => {
-      return Splitter.deployed();
-    })
-    .then(instance => {
-      console.log(`Copying contracts from ${fromDirectory} to ${toDirectory}`);
-      fs.copySync(fromDirectory, toDirectory, { overwrite: true });
-    });
+module.exports = function(deployer, network) {
+  deployer.deploy(Splitter, false);
 };

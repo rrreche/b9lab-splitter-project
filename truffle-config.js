@@ -21,6 +21,10 @@
 const HDWalletProvider = require("truffle-hdwallet-provider");
 
 const fs = require("fs-extra");
+const path = require("path");
+
+const contractsBuildPath = path.resolve(__dirname, "./client/src/contracts");
+
 const secrets = fs.readJsonSync(".secrets.json");
 
 const endpoints = secrets.endpoints;
@@ -86,7 +90,7 @@ module.exports = {
       gasPrice: 100000000000
     }
   },
-
+  contracts_build_directory: contractsBuildPath,
   // Set default mocha options here, use special reporters etc.
   mocha: {
     // timeout: 100000

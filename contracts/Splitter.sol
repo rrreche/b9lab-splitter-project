@@ -8,20 +8,20 @@ contract Splitter is Pausable {
 
   mapping(address => uint) public balances;
 
-  event LogBalanceIncrease(
+  event LogBalanceIncreased(
     address indexed sender,
     address indexed receiver,
-    uint256 indexed amount
+    uint256 amount
   );
 
-  event LogBalanceWithdraw(
+  event LogBalanceWithdrawn(
     address indexed sender,
     uint256 amount
   );
 
   constructor(bool startPaused) Pausable(startPaused) public {}
 
-  function splitEther(address receiver1, address receiver2) public payable mustBeAlive() mustBeRunning(){
+  function splitEther(address receiver1, address receiver2) public payable mustBeAlive() mustBeRunning() returns (bool) {
 
     uint256 splittedAmount = msg.value.div(2); // Split the ether
 
@@ -30,28 +30,30 @@ contract Splitter is Pausable {
     addBalance(receiver2, splittedAmount);
 
     // Refund remainder
-    if(msg.value % 2 == 1){
+    if(msg.value % 2 == 1) {
       addBalance(msg.sender, 1);
     }
 
+    return true;
   }
 
   function addBalance(address to, uint256 amount) private {
     balances[to] = balances[to].add(amount);
 
-    emit LogBalanceIncrease(
+    emit LogBalanceIncreased(
       msg.sender,
       to,
       amount
     );
   }
 
-  function withdrawEther(uint amount) public mustBeAlive() mustBeRunning() {
+  function withdrawEther(uint amount) public mustBeAlive() mustBeRunning() returns (bool) {
     uint balance = balances[msg.sender];
     require(balance >= amount, "Not enough balance");
     balances[msg.sender] = balance.sub(amount);
-    emit LogBalanceWithdraw(msg.sender, amount);
+    emit LogBalanceWithdrawn(msg.sender, amount);
     msg.sender.transfer(amount);
+    return true;
   }
 
   function() external {

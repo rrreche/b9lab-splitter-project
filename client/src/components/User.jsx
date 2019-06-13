@@ -5,6 +5,7 @@ import withDrizzle from "./withDrizzle.jsx";
 import { Form, Row, Col, Toast } from "react-bootstrap";
 import { AlertList } from "react-bs-notifier";
 
+import TransactionNotification from "./TransactionNotification";
 import LoadingButton from "./LoadingButton";
 import * as Utils from "web3-utils";
 const BN = Utils.BN;
@@ -26,7 +27,7 @@ class User extends React.Component {
 
     try {
       const { drizzle } = this.props;
-      let { alerts } = this.state;
+      const onTransactionHash = this.handleTransactionHash;
       const onConfirmation = this.handleConfirmation;
       const onError = this.handleFailedTransaction;
 
@@ -60,9 +61,19 @@ class User extends React.Component {
 
       drizzle.contracts.Splitter.methods
         .splitEther(recipient1, recipient2)
-        .send({ value: amountToSplit })
-        .on("confirmation", onConfirmation)
-        .on("error", onError);
+        .call({ value: amountToSplit })
+        .then(result => {
+          if (result === true) {
+            drizzle.contracts.Splitter.methods
+              .splitEther(recipient1, recipient2)
+              .send({ value: amountToSplit })
+              .on("transactionHash", onTransactionHash)
+              .on("confirmation", onConfirmation)
+              .on("error", this.onError);
+          } else {
+            onError("Transaction did not return after call()");
+          }
+        });
     } catch (e) {
       this.setState({ splitError: true, splitReason: e.message });
     }
@@ -70,20 +81,32 @@ class User extends React.Component {
 
   handleWithdraw = () => {
     const { drizzle, drizzleState } = this.props;
+    const onTransactionHash = this.handleTransactionHash;
     const onConfirmation = this.handleConfirmation;
     const onError = this.handleFailedTransaction;
 
     this.setState({ performingOperation: true, withdrawing: true });
 
+    let amount = 0;
+
     const withdrawAmount = drizzle.contracts.Splitter.methods
       .balances(drizzleState.accounts["0"])
       .call()
-      .then(amount => {
-        return drizzle.contracts.Splitter.methods
-          .withdrawEther(amount)
-          .send()
-          .on("confirmation", onConfirmation)
-          .on("error", onError);
+      .then(result => {
+        amount = result;
+        return drizzle.contracts.Splitter.methods.withdrawEther(amount).call();
+      })
+      .then(result => {
+        if (result === true) {
+          return drizzle.contracts.Splitter.methods
+            .withdrawEther(amount)
+            .send()
+            .on("transactionHash", onTransactionHash)
+            .on("confirmation", onConfirmation)
+            .on("error", onError);
+        } else {
+          onError("Transaction did not return after call()");
+        }
       })
       .catch(onError);
   };
@@ -94,6 +117,11 @@ class User extends React.Component {
 
   closeAlerts = () => {
     this.setState({ alerts: [] });
+  };
+
+  handleTransactionHash = hash => {
+    let { alerts } = this.state;
+    alerts.push({ id: alerts.length, type: "info", message: <TransactionNotification hash={hash} /> });
   };
 
   handleConfirmation = (confirmationNumber, receipt) => {
@@ -119,7 +147,7 @@ class User extends React.Component {
       type: "danger",
       message: "Something went wrong"
     });
-    this.setState({ performingOperation: false, withdrawing: false, alerts });
+    this.setState({ performingOperation: false, splitting: false, withdrawing: false, alerts });
   };
 
   render() {
@@ -130,7 +158,7 @@ class User extends React.Component {
 
     return (
       <div>
-        <AlertList alerts={alerts} onDismiss={this.closeAlerts} timeout={3000} />
+        <AlertList alerts={alerts} onDismiss={this.closeAlerts} timeout={100000} />
         <Row>
           <Col xs={12}>
             You have{" "}

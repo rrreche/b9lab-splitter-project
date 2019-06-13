@@ -28,7 +28,7 @@ contract("Splitter", accounts => {
 
       checkEvent({
         logs: tx.logs,
-        name: "LogPause",
+        name: "LogPaused",
         params: [{ name: "state", val: true }]
       });
 
@@ -40,8 +40,8 @@ contract("Splitter", accounts => {
 
       checkEvent({
         logs: tx.logs,
-        name: "LogOwnerChange",
-        params: [{ name: "owner", val: bob }]
+        name: "LogOwnerChanged",
+        params: [{ name: "newOwner", val: bob }]
       });
 
       assert.strictEqual(await this.contract.getOwner(), bob, "New owner was not set");
@@ -53,7 +53,7 @@ contract("Splitter", accounts => {
 
       checkEvent({
         logs: tx.logs,
-        name: "LogKill",
+        name: "LogKilled",
         params: [{ name: "sender", val: alice }]
       });
 
@@ -117,7 +117,7 @@ contract("Splitter", accounts => {
 
         checkEvent({
           logs: [tx.logs[0]],
-          name: "LogBalanceIncrease",
+          name: "LogBalanceIncreased",
           params: [
             { name: "sender", val: alice },
             { name: "receiver", val: bob },
@@ -127,7 +127,7 @@ contract("Splitter", accounts => {
 
         checkEvent({
           logs: [tx.logs[1]],
-          name: "LogBalanceIncrease",
+          name: "LogBalanceIncreased",
           params: [
             { name: "sender", val: alice },
             { name: "receiver", val: carol },
@@ -155,7 +155,7 @@ contract("Splitter", accounts => {
 
         checkEvent({
           logs: [tx.logs[2]],
-          name: "LogBalanceIncrease",
+          name: "LogBalanceIncreased",
           params: [
             { name: "sender", val: alice },
             { name: "receiver", val: alice },
@@ -199,7 +199,7 @@ contract("Splitter", accounts => {
 
       checkEvent({
         logs: result.logs,
-        name: "LogBalanceWithdraw",
+        name: "LogBalanceWithdrawn",
         params: [{ name: "sender", val: bob }, { name: "amount", val: withdrawAmount }]
       });
     });
