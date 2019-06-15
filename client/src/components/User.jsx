@@ -89,7 +89,7 @@ class User extends React.Component {
 
     let amount = 0;
 
-    const withdrawAmount = drizzle.contracts.Splitter.methods
+    drizzle.contracts.Splitter.methods
       .balances(drizzleState.accounts["0"])
       .call()
       .then(result => {

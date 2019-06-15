@@ -1,6 +1,5 @@
 const Splitter = artifacts.require("./Splitter.sol");
-const utils = require("web3-utils");
-const BN = utils.BN;
+const { BN, toWei } = require("web3-utils");
 const checkEvent = require("./helpers/checkEvent");
 
 contract("Splitter", accounts => {
@@ -89,7 +88,7 @@ contract("Splitter", accounts => {
   describe("Contract operation", () => {
     describe("allows users to send ether to the contract and split it", () => {
       it("splits the amount between receivers correctly and updates balances", async function() {
-        const sentBalance = new BN(utils.toWei("1", "shannon"));
+        const sentBalance = new BN(toWei("1", "shannon"));
         const tx = await this.contract.splitEther(bob, carol, {
           from: alice,
           value: sentBalance.toString()
@@ -166,7 +165,7 @@ contract("Splitter", accounts => {
     });
 
     it("allows users to withdraw their ether", async function() {
-      const sentBalance = new BN(utils.toWei("1", "shannon"));
+      const sentBalance = new BN(toWei("1", "shannon"));
 
       await this.contract.splitEther(bob, carol, {
         from: alice,
@@ -174,7 +173,7 @@ contract("Splitter", accounts => {
       });
 
       const oldBobBalance = new BN(await web3.eth.getBalance(bob));
-      const withdrawAmount = new BN(utils.toWei("0.5", "shannon"));
+      const withdrawAmount = new BN(toWei("0.5", "shannon"));
 
       const result = await this.contract.withdrawEther(withdrawAmount, {
         from: bob
@@ -207,7 +206,7 @@ contract("Splitter", accounts => {
 
   describe("Dishonest / bad behaviours", () => {
     it("rejects to withdraw more ether than is allowed", async function() {
-      const amountToSplit = new BN(utils.toWei("1", "shannon"));
+      const amountToSplit = new BN(toWei("1", "shannon"));
       await this.contract.splitEther(bob, carol, {
         value: amountToSplit.toString()
       });

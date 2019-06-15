@@ -23,7 +23,7 @@ contract Ownable {
     return owner;
   }
 
-  function setOwner(address newOwner) public onlyOwner() {
+  function setOwner(address newOwner) public onlyOwner {
     require(newOwner != address(0), "newOwner is empty");
     owner = newOwner;
     emit LogOwnerChanged(msg.sender, newOwner);

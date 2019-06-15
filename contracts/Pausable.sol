@@ -36,17 +36,17 @@ contract Pausable is Ownable {
     _;
   }
 
-  function pause() public mustBeAlive() onlyOwner() mustBeRunning() {
+  function pause() public mustBeAlive onlyOwner mustBeRunning {
     paused = true;
     emit LogPaused(msg.sender, true);
   }
 
-  function resume() public mustBeAlive() onlyOwner() mustBePaused() {
+  function resume() public mustBeAlive onlyOwner mustBePaused {
     paused = false;
     emit LogPaused(msg.sender, false);
   }
 
-  function kill() public mustBeAlive() onlyOwner() mustBePaused() {
+  function kill() public mustBeAlive onlyOwner mustBePaused {
     dead = true;
     emit LogKilled(msg.sender);
   }

@@ -21,7 +21,7 @@ contract Splitter is Pausable {
 
   constructor(bool startPaused) Pausable(startPaused) public {}
 
-  function splitEther(address receiver1, address receiver2) public payable mustBeAlive() mustBeRunning() returns (bool) {
+  function splitEther(address receiver1, address receiver2) public payable mustBeAlive mustBeRunning returns (bool) {
 
     uint256 splittedAmount = msg.value.div(2); // Split the ether
 
@@ -47,7 +47,7 @@ contract Splitter is Pausable {
     );
   }
 
-  function withdrawEther(uint amount) public mustBeAlive() mustBeRunning() returns (bool) {
+  function withdrawEther(uint amount) public mustBeAlive mustBeRunning returns (bool) {
     uint balance = balances[msg.sender];
     require(balance >= amount, "Not enough balance");
     balances[msg.sender] = balance.sub(amount);
