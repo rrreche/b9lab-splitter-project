@@ -28,6 +28,7 @@ class User extends React.Component {
     try {
       const { drizzle } = this.props;
       const onTransactionHash = this.handleTransactionHash;
+      const onReceipt = this.handleReceipt;
       const onConfirmation = this.handleConfirmation;
       const onError = this.handleFailedTransaction;
 
@@ -68,6 +69,7 @@ class User extends React.Component {
               .splitEther(recipient1, recipient2)
               .send({ value: amountToSplit })
               .on("transactionHash", onTransactionHash)
+              .on("receipt", onReceipt)
               .on("confirmation", onConfirmation)
               .on("error", this.onError);
           } else {
@@ -82,6 +84,7 @@ class User extends React.Component {
   handleWithdraw = () => {
     const { drizzle, drizzleState } = this.props;
     const onTransactionHash = this.handleTransactionHash;
+    const onReceipt = this.handleReceipt;
     const onConfirmation = this.handleConfirmation;
     const onError = this.handleFailedTransaction;
 
@@ -102,11 +105,15 @@ class User extends React.Component {
             .withdrawEther(amount)
             .send()
             .on("transactionHash", onTransactionHash)
+            .on("receipt", onReceipt)
             .on("confirmation", onConfirmation)
             .on("error", onError);
         } else {
           onError("Transaction did not return after call()");
         }
+      })
+      .then(result => {
+        console.log(result);
       })
       .catch(onError);
   };
@@ -124,14 +131,18 @@ class User extends React.Component {
     alerts.push({ id: alerts.length, type: "info", message: <TransactionNotification hash={hash} /> });
   };
 
+  handleReceipt = receipt => {
+    let { alerts } = this.state;
+
+    if (receipt.status === true) {
+      alerts.push({ id: alerts.length, type: "info", message: "Transaction successful, waiting confirmation" });
+    }
+  };
+
   handleConfirmation = (confirmationNumber, receipt) => {
     let { alerts } = this.state;
 
-    if (confirmationNumber === 0) {
-      alerts.push({ id: alerts.length, type: "info", message: "Transaction successful, waiting 2 confirmations" });
-    }
-
-    if (confirmationNumber === 2) {
+    if (confirmationNumber === 1) {
       alerts.push({ id: alerts.length, type: "success", message: "Transaction confirmed" });
       this.setState({ performingOperation: false, splitting: false, withdrawing: false, alerts });
     }
@@ -158,7 +169,7 @@ class User extends React.Component {
 
     return (
       <div>
-        <AlertList alerts={alerts} onDismiss={this.closeAlerts} timeout={100000} />
+        <AlertList alerts={alerts} onDismiss={this.closeAlerts} timeout={10000} />
         <Row>
           <Col xs={12}>
             You have{" "}
