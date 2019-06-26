@@ -1,20 +1,40 @@
 import React from "react";
 import { Modal, Spinner } from "react-bootstrap";
 
+const SplitterContract = require("./../contracts/Splitter.json");
+
 class LoadingDapp extends React.Component {
   state = {
-    networkOK: true
+    networkOK: true,
+    network: null,
+    networks: []
   };
 
   checkNetworkStatus() {
     const { drizzle } = this.props;
+
     try {
-      drizzle.web3.eth.net.getId().then(id => {
-        if (id === 3) this.setState({ networkOK: true });
-        else this.setState({ networkOK: false });
-      });
+      let networks = [];
+
+      for (let network in SplitterContract.networks) {
+        networks.push(parseInt(network));
+      }
+
+      this.setState({ networks });
+
+      drizzle.web3.eth.net
+        .getId()
+        .then(id => {
+          if (networks.includes(id)) this.setState({ network: id, networkOK: true });
+          else this.setState({ network: id, networkOK: false });
+        })
+        .catch(error => {
+          console.error(error);
+          this.setState({ networkOK: false });
+        });
     } catch (e) {
       console.error(e);
+      this.setState({ networkOK: false });
     }
   }
 
@@ -25,6 +45,24 @@ class LoadingDapp extends React.Component {
   componentWillUnmount() {
     clearInterval(this.interval);
   }
+
+  warningText = () => {
+    const { network, networks } = this.state;
+
+    return (
+      <div>
+        <p className="text-warning">
+          <i className="fas fa-exclamation-triangle" /> Please switch to Ropsten Test Network in Metamask, or to your
+          local development network
+        </p>
+
+        <p>Contract is deployed in: {networks.toString().replace(",", ", ")}</p>
+        <p>
+          You are currently connected to: <b>{network ? network : "Unknown"}</b>
+        </p>
+      </div>
+    );
+  };
 
   render() {
     const { networkOK } = this.state;
@@ -44,13 +82,7 @@ class LoadingDapp extends React.Component {
           <Spinner animation="grow" variant="warning" />
           <Spinner animation="grow" variant="info" />
 
-          {networkOK === true ? (
-            <p>Please, allow the app to access Metamask</p>
-          ) : (
-            <p className="text-warning">
-              <i className="fas fa-exclamation-triangle" /> Please switch to Ropsten Test Network in Metamask
-            </p>
-          )}
+          {networkOK === true ? <p>Please, allow the app to access Metamask</p> : this.warningText()}
         </Modal.Body>
       </Modal>
     );

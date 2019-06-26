@@ -37,7 +37,7 @@ export default () => (
     {drizzleContext => {
       const { drizzle, drizzleState, initialized } = drizzleContext;
       if (!initialized) {
-        return <LoadingDapp drizzle={drizzle} />;
+        return <LoadingDapp drizzle={drizzle} drizzleState={drizzleState} />;
       }
 
       return <AppContainer drizzle={drizzle} drizzleState={drizzleState} />;
